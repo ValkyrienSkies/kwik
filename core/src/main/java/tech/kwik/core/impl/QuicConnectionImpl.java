@@ -263,6 +263,16 @@ public abstract class QuicConnectionImpl implements QuicConnection, PacketProces
     }
 
     @Override
+    public long getCongestionWindow() {
+        return getSender().getCongestionController().getWindowSize();
+    }
+
+    @Override
+    public long getBytesInFlight() {
+        return getSender().getCongestionController().getBytesInFlight();
+    }
+
+    @Override
     public int maxDatagramDataSize() {
         // https://www.rfc-editor.org/rfc/rfc9221.html#section-5
         // "Note that while the max_datagram_frame_size transport parameter places a limit on the maximum size of

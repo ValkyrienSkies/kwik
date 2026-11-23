@@ -141,4 +141,14 @@ public interface QuicConnection extends DatagramExtension {
     void close(long applicationErrorCode, String errorReason);
 
     Statistics getStats();
+    /**
+     * @return the current congestion window in bytes. (VS patch, not part of upstream Kwik.)
+     */
+    long getCongestionWindow();
+
+    /**
+     * @return the number of bytes currently in flight, i.e. sent but neither acknowledged nor declared lost.
+     * (VS patch, not part of upstream Kwik.)
+     */
+    long getBytesInFlight();
 }
