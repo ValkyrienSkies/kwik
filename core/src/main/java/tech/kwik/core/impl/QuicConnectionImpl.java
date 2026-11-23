@@ -53,6 +53,7 @@ import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 
 import static tech.kwik.core.ConnectionTerminatedEvent.CloseReason;
 import static tech.kwik.core.ConnectionTerminatedEvent.CloseReason.ConnectionLost;
@@ -234,6 +235,31 @@ public abstract class QuicConnectionImpl implements QuicConnection, PacketProces
             throw new IllegalStateException("Datagram extension is not enabled" +
                     (datagramExtensionStatus == DatagramExtensionStatus.EnabledReceiveOnly? " for sending.":"."));
         }
+    }
+
+    @Override
+    public void sendDatagram(IntFunction<byte[]> supplier, int minimumDataSize, Consumer<byte[]> lostCallback) {
+        if (!canSendDatagram()) {
+            throw new IllegalStateException("Datagram extension is not enabled" +
+                    (datagramExtensionStatus == DatagramExtensionStatus.EnabledReceiveOnly? " for sending.":"."));
+        }
+        int frameOverhead = DatagramFrame.getMaxMinimalFrameSize();
+        getSender().send(maxFrameSize -> {
+            int maxData = Integer.min(maxFrameSize - frameOverhead, maxDatagramDataSize());
+            if (maxData < minimumDataSize) {
+                return null;
+            }
+            byte[] data = supplier.apply(maxData);
+            if (data == null) {
+                return null;
+            }
+            if (data.length > maxData) {
+                throw new IllegalArgumentException("Datagram supplier produced " + data.length + " bytes, max is " + maxData);
+            }
+            return new DatagramFrame(data);
+        }, minimumDataSize + frameOverhead, App, lostFrame -> lostCallback.accept(((DatagramFrame) lostFrame).getData()));
+        // Sender.send only queues the request; without a wake-up it waits for unrelated traffic (acks, pings).
+        getSender().flush();
     }
 
     @Override

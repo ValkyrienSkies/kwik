@@ -20,6 +20,7 @@ package tech.kwik.core;
 
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
+import java.util.function.IntFunction;
 
 /**
  * Datagram extension as specified by RFC 9221 "An Unreliable Datagram Extension to QUIC".
@@ -74,4 +75,20 @@ public interface DatagramExtension {
      * @throws IllegalArgumentException if the data size exceeds the maximum datagram data size.
      */
     void sendDatagram(byte[] data);
+
+    /**
+     * Requests sending a datagram whose content is produced lazily, at the moment the connection is able to send
+     * it (i.e. when congestion control allows a packet to be sent). This lets an application always send its
+     * freshest data instead of queueing datagrams that are stale by the time the connection can send them.
+     * <p>
+     * The supplier is called (at most once per call of this method) on the sender thread, with the maximum number
+     * of data bytes that fit; it returns the data to send (at most that many bytes) or {@code null} to send nothing.
+     * (VS patch, not part of upstream Kwik.)
+     *
+     * @param supplier        produces the datagram data given the maximum data size, or returns null
+     * @param minimumDataSize the supplier is only invoked when at least this many data bytes fit in a packet
+     * @param lostCallback    called (on an internal thread) with the data when the packet carrying it is declared lost
+     * @throws IllegalStateException if the datagram extension is not enabled for sending
+     */
+    void sendDatagram(IntFunction<byte[]> supplier, int minimumDataSize, Consumer<byte[]> lostCallback);
 }
