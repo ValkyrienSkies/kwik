@@ -1529,9 +1529,16 @@ public class QuicClientConnectionImpl extends QuicConnectionImpl implements Quic
         tlsEngine.setHostnameVerifier((hostname, serverCertificate) -> true);
     }
 
+    /**
+     * When false, the security warnings below are never printed. For applications that validate the server some
+     * other way (e.g. by pinning its certificate with a custom trust manager), where the warning is misleading.
+     * Unlike the system property, this survives package relocation (shading). (VS patch, not part of upstream Kwik.)
+     */
+    public static volatile boolean printSecurityWarnings = true;
+
     private void printSecurityWarning(String reason) {
         String propValue = System.getProperty("tech.kwik.core.no-security-warnings");
-        boolean suppressWarning = propValue != null && propValue.toLowerCase().equals("true");
+        boolean suppressWarning = !printSecurityWarnings || (propValue != null && propValue.toLowerCase().equals("true"));
         if (! suppressWarning) {
             System.out.println("SECURITY WARNING: INSECURE configuration! " + reason + "; QUIC connections may be subject to man-in-the-middle attacks!");
         }
