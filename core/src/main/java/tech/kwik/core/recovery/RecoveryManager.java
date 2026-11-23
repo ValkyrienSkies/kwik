@@ -27,6 +27,7 @@ import tech.kwik.core.impl.FrameReceivedListener;
 import tech.kwik.core.impl.HandshakeState;
 import tech.kwik.core.impl.HandshakeStateListener;
 import tech.kwik.core.impl.Role;
+import tech.kwik.core.impl.SharedExecutors;
 import tech.kwik.core.log.Logger;
 import tech.kwik.core.packet.QuicPacket;
 import tech.kwik.core.send.Sender;
@@ -111,6 +112,7 @@ public class RecoveryManager implements FrameReceivedListener<AckFrame>, Handsha
     private final Sender sender;
     private final Logger log;
     private final ScheduledExecutorService scheduler;
+    private final boolean sharedScheduler; // VS patch: SharedExecutors
     private final ProbeType probeType;
     private final BiConsumer<Integer, Duration> probeTimeoutListener;
     private int receiverMaxAckDelay;
@@ -151,7 +153,9 @@ public class RecoveryManager implements FrameReceivedListener<AckFrame>, Handsha
         this.probeTimeoutListener = probeTimeoutListener;
         log = logger;
 
-        scheduler = Executors.newScheduledThreadPool(1, new DaemonThreadFactory("loss-detection"));
+        sharedScheduler = SharedExecutors.enabled;
+        scheduler = sharedScheduler ? SharedExecutors.timers()
+                : Executors.newScheduledThreadPool(1, new DaemonThreadFactory("loss-detection"));
         synchronized (scheduleLock) {
             lossDetectionFuture = new NullScheduledFuture();
         }
@@ -569,7 +573,9 @@ public class RecoveryManager implements FrameReceivedListener<AckFrame>, Handsha
         if (!hasBeenStopped) {
             hasBeenStopped = true;
             unschedule();
-            scheduler.shutdown();
+            if (!sharedScheduler) {
+                scheduler.shutdown(); // a shared pool (VS patch) is never shut down; unschedule() cancelled our task
+            }
             for (PnSpace pnSpace: PnSpace.values()) {
                 lossDetectors[pnSpace.ordinal()].close();
             }

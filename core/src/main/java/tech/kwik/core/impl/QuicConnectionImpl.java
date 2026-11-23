@@ -171,10 +171,15 @@ public abstract class QuicConnectionImpl implements QuicConnection, PacketProces
         connectionState = Status.Created;
         closeFramesSendRateLimiter = new ProgressivelyIncreasingRateLimiter();
         scheduler = createScheduler(id);
-        ThreadPoolExecutor callbackThreadPoolExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(), new DaemonThreadFactory("callbacks-" + id),
-                new ThreadPoolExecutor.DiscardPolicy());
-        callbackThread = callbackThreadPoolExecutor;
+        if (SharedExecutors.enabled) {
+            callbackThread = SharedExecutors.serialCallbacks(); // VS patch: shared threads, still sequential
+        }
+        else {
+            ThreadPoolExecutor callbackThreadPoolExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
+                    new LinkedBlockingQueue<>(), new DaemonThreadFactory("callbacks-" + id),
+                    new ThreadPoolExecutor.DiscardPolicy());
+            callbackThread = callbackThreadPoolExecutor;
+        }
         currentEncryptionLevel = Initial;
     }
 
@@ -287,6 +292,10 @@ public abstract class QuicConnectionImpl implements QuicConnection, PacketProces
 
     @Override
     public void setDatagramHandler(Consumer<byte[]> handler) {
+        if (SharedExecutors.enabled) {
+            setDatagramHandler(handler, SharedExecutors.serialCallbacks()); // VS patch
+            return;
+        }
         DaemonThreadFactory daemonThreadFactory = new DaemonThreadFactory("datagram-frame-handler");
         setDatagramHandler(handler, Executors.newSingleThreadExecutor(daemonThreadFactory));
     }

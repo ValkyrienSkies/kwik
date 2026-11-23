@@ -39,6 +39,7 @@ public class IdleTimer {
     }
     private final Clock clock;
     private final ScheduledExecutorService timer;
+    private final boolean sharedTimer; // VS patch: SharedExecutors
     private final int timerResolution;
     private volatile long timeout;
     private final QuicConnectionImpl connection;
@@ -65,12 +66,16 @@ public class IdleTimer {
         this.log = logger;
         this.timerResolution = timerResolution;
 
+        sharedTimer = SharedExecutors.enabled;
         timer = createScheduler();
         lastActionTime = clock.instant();
         lastAction = Action.PACKET_RECEIVED;  // Initial state is like a packet was received (no tail loss).
     }
 
     private ScheduledExecutorService createScheduler() {
+        if (sharedTimer) {
+            return SharedExecutors.timers();
+        }
         ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1, new DaemonThreadFactory("idle-timer"));
         timer.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
         return timer;
@@ -108,7 +113,7 @@ public class IdleTimer {
                 // To avoid excessively small idle timeout periods, endpoints MUST increase the idle timeout period
                 // to be at least three times the current Probe Timeout (PTO)
                 if (lastActionTime.plusMillis(3L * currentPto).isBefore(now)) {
-                    timer.shutdown();
+                    stopTimer();
                     connection.silentlyCloseConnection(timeout + currentPto);
                 }
             }}
@@ -137,6 +142,18 @@ public class IdleTimer {
 
     public void shutdown() {
         if (enabled) {
+            stopTimer();
+        }
+    }
+
+    private void stopTimer() {
+        if (sharedTimer) {
+            // Shared pool (VS patch): cancel only this connection's task.
+            if (timerTask != null) {
+                timerTask.cancel(false);
+            }
+        }
+        else {
             timer.shutdown();
         }
     }
