@@ -9,31 +9,8 @@ plugins {
     id 'application'
 }
 
-group = 'tech.kwik'
-
-// Derive the project version from git at configuration time, so that every task
-// (the jar, and the sources/javadoc jars and publications created by the
-// vanniktech plugin) consistently sees the same version. A clean tag like
-// 'v1.0.19' becomes '1.0.19'; any other 'git describe' output (development
-// builds) is used verbatim.
-version = {
-    def proc = "git describe --always --dirty".execute()
-    proc.waitFor()
-    if (proc.exitValue() != 0) {
-        logger.quiet("Building development version.")
-        return 'unspecified'
-    }
-    def versionTag = proc.in.readLines()[0]
-    if (versionTag ==~ /v?[0-9]+(\.\d+){1,2}/) {
-        if (versionTag.startsWith("v")) {
-            versionTag = versionTag[1..-1]
-        }
-        logger.quiet("Building version ${versionTag}.")
-    } else {
-        logger.error("Version tag '${versionTag}' does not contain a valid version.")
-    }
-    return versionTag
-}()
+group = 'org.valkyrienskies.kwik'
+version = '0.12.3-vs.1'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -97,19 +74,12 @@ mavenPublishing {
     // './gradlew javadoc'.
     configure(new JavaLibrary(new JavadocJar.Empty(), true))
 
-    // Uploads to Maven Central (Central Portal). Credentials are read from the
-    // 'mavenCentralUsername' / 'mavenCentralPassword' Gradle properties.
-    publishToMavenCentral()
-
-    // GPG-signs all publications, using the standard signing.* Gradle properties.
-    signAllPublications()
-
     // The artifactId defaults to the (sub)project name, the group and version to
     // the project's group and version. Modules override name/description below.
     pom {
         name = 'Kwik'
         description = 'A QUIC implementation in Java'
-        url = 'https://github.com/ptrd/kwik'
+        url = 'https://github.com/ValkyrienSkies/kwik'
 
         licenses {
             license {
@@ -127,9 +97,9 @@ mavenPublishing {
         }
 
         scm {
-            connection = 'scm:git:git@github.com:ptrd/kwik.git'
-            developerConnection = 'scm:git:git@github.com:ptrd/kwik.git'
-            url = 'https://github.com/ptrd/kwik'
+            connection = 'scm:git:git@github.com:ValkyrienSkies/kwik.git'
+            developerConnection = 'scm:git:git@github.com:ValkyrienSkies/kwik.git'
+            url = 'https://github.com/ValkyrienSkies/kwik'
         }
     }
 }

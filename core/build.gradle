@@ -47,3 +47,16 @@ sourceSets {
         }
     }
 }
+
+// Only the core library is distributed as a VS artifact. Its Java component
+// includes the source archive, POM and Gradle module metadata.
+publishing.repositories {
+    maven {
+        name = 'ValkyrienSkies'
+        url = uri(providers.gradleProperty('vs_maven_url').getOrElse('https://maven.valkyrienskies.org/'))
+        credentials {
+            username = providers.gradleProperty('vs_maven_username').orNull
+            password = providers.gradleProperty('vs_maven_password').orNull
+        }
+    }
+}
